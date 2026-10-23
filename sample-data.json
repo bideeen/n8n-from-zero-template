@@ -1,0 +1,23 @@
+{
+  "_note": "Synthetic test leads. All names are made up; all emails use example.com.",
+  "leads": [
+    {
+      "Name": "Ada Testwell",
+      "Email": "  Ada.Testwell@Example.com ",
+      "Company": "Demo Logistics Ltd",
+      "Message": "Can you help us tidy our customer data?"
+    },
+    {
+      "Name": "Kunle Sample",
+      "Email": "kunle.sample@example.com",
+      "Company": "Sample Energy Co",
+      "Message": "Interested in automating our weekly report."
+    },
+    {
+      "Name": "Bad Data",
+      "Email": "not-an-email",
+      "Company": "",
+      "Message": "This one should be rejected by the clean step."
+    }
+  ]
+}

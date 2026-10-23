@@ -1,0 +1,486 @@
+{
+  "name": "n8n from zero - enquiry form with human approval (BerleyData demo)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Enquiry form (demo)",
+        "formDescription": "Demo form for the 'n8n from zero' tutorial. Use made-up data only.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Company"
+            },
+            {
+              "fieldLabel": "Message",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Enquiry Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean the data at the door: trim, lowercase email, flag bad emails.\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const name = String(j['Name'] || '').trim();\n  const email = String(j['Email'] || '').trim().toLowerCase();\n  const company = String(j['Company'] || '').trim();\n  const message = String(j['Message'] || '').trim();\n  const valid = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(email) && name.length > 0;\n  out.push({ json: { name, email, company, message, valid, received_at: new Date().toISOString() } });\n}\nreturn out;"
+      },
+      "name": "Clean the data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Is the email valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "name": "Log rejected input",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        660,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_GOOGLE_SHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "email",
+              "lookupValue": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Check for duplicate",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        200
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": ""
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Is it new?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        200
+      ]
+    },
+    {
+      "parameters": {},
+      "name": "Already in sheet (skip)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_GOOGLE_SHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "name": "={{ $('Clean the data').item.json.name }}",
+            "email": "={{ $('Clean the data').item.json.email }}",
+            "company": "={{ $('Clean the data').item.json.company }}",
+            "message": "={{ $('Clean the data').item.json.message }}",
+            "received_at": "={{ $('Clean the data').item.json.received_at }}",
+            "status": "pending approval"
+          },
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "type": "string"
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "type": "string"
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "type": "string"
+            },
+            {
+              "id": "received_at",
+              "displayName": "received_at",
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Save lead to sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1100,
+        100
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "you@example.com",
+        "subject": "=Approve reply to {{ $('Clean the data').item.json.name }}?",
+        "message": "=New enquiry:\nName: {{ $('Clean the data').item.json.name }}\nEmail: {{ $('Clean the data').item.json.email }}\nCompany: {{ $('Clean the data').item.json.company }}\nMessage: {{ $('Clean the data').item.json.message }}\n\nApprove to send the confirmation email.",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {}
+      },
+      "name": "Ask me first (approval)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1320,
+        100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Clean the data').item.json.email }}",
+        "subject": "Thanks for getting in touch",
+        "emailType": "text",
+        "message": "=Hi {{ $('Clean the data').item.json.name }},\n\nThanks for your message. We've received it and will reply soon.\n\n(Demo workflow - edit this text before using it for real.)",
+        "options": {}
+      },
+      "name": "Send confirmation email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1760,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_GOOGLE_SHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "email"
+          ],
+          "value": {
+            "email": "={{ $('Clean the data').item.json.email }}",
+            "status": "rejected - no email sent"
+          },
+          "schema": [
+            {
+              "id": "email",
+              "displayName": "email",
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Log rejection",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1760,
+        200
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": ""
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Enquiry Form": {
+      "main": [
+        [
+          {
+            "node": "Clean the data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean the data": {
+      "main": [
+        [
+          {
+            "node": "Is the email valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the email valid?": {
+      "main": [
+        [
+          {
+            "node": "Check for duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log rejected input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for duplicate": {
+      "main": [
+        [
+          {
+            "node": "Is it new?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it new?": {
+      "main": [
+        [
+          {
+            "node": "Save lead to sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Already in sheet (skip)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save lead to sheet": {
+      "main": [
+        [
+          {
+            "node": "Ask me first (approval)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask me first (approval)": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Send confirmation email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
